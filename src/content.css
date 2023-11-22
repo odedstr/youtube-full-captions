@@ -1,0 +1,26 @@
+#youtube-full-captions-container{
+	position: absolute;
+	left: 0;
+	bottom: 50px;
+	width: 100%;
+	height: 50px;
+}
+
+#youtube-full-captions-container .youtube-full-captions-text{
+	padding: 10px;
+	background: #0000009c;
+	color: white;
+	font-size: 2em;
+	width: fit-content;
+	text-align: center;
+	margin: 0 auto;
+}
+.caption-window.ytp-caption-window-bottom{
+	display: none;
+}
+*[target-id="engagement-panel-searchable-transcript"]{
+	visibility: hidden;
+	width: 1px;
+	position: absolute;
+}
+

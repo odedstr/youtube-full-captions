@@ -21,32 +21,34 @@
 // chrome.action.onClicked.addListener(async (tab) => {
 
 
-	console.debug('document.querySelector(\'[aria-label="Show transcript"]\')',
-		document.querySelector('[aria-label="Show transcript"]'));
+// console.debug('document.querySelector(\'[aria-label="Show transcript"]\')',
+// 		document.querySelector('[aria-label="Show transcript"]'));
 
-	document.querySelector('[aria-label="Show transcript"]').click();
+document.querySelector('[aria-label="Show transcript"]').click();
 
 
 
 // Create a new div element
-var newDiv = document.createElement("div");
+var captions_container = document.createElement("div");
 
 // Set an ID for the div
-newDiv.id = "yourTargetDivId";
+captions_container.id = "youtube-full-captions-container";
 
-newDiv.style.position = "fixed";
-newDiv.style.left = "0";
-newDiv.style.top = "100px";
+captions_container.style.position = "absolute";
+captions_container.style.left = "0";
+captions_container.style.bottom = "50px";
+captions_container.style.width = "100%";
+captions_container.style.height = "50px";
 
+// let video_element = document.querySelector(".video-stream.html5-main-video");
 
-// Optionally, add some content to the div
-newDiv.innerHTML = "This is a new div with an ID.";
+captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''><div>";
 
-// Append the new div to the body or another element in the document
-document.body.appendChild(newDiv);
+let player_element = document.querySelector("#player");
+player_element.appendChild(captions_container);
 
 // Step 1: Select the target div
-const targetDiv = document.getElementById('yourTargetDivId');
+const targetDiv = document.querySelector('#youtube-full-captions-container .youtube-full-captions-text');
 
 // Step 2: Function to copy contents
 function copyContents() {
