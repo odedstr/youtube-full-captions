@@ -24,6 +24,10 @@
 	background: black;
 }
 
+body:not(.no-scroll) .youtube-full-captions-container-fullscreen{
+	display: none;
+}
+
 .caption-window.ytp-caption-window-bottom{
 	display: none;
 }

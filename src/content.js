@@ -87,6 +87,7 @@ monitorElementPosition(captions_text_element,
 
 const fullscreen_captions_container = captions_container.cloneNode(true);
 let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
+fullscreen_player_element.classList.add('youtube-full-captions-container-fullscreen');
 fullscreen_player_element.appendChild(fullscreen_captions_container);
 makeDivDraggable(fullscreen_captions_container);
 
