@@ -34,14 +34,6 @@ var captions_container = document.createElement("div");
 // Set an ID for the div
 captions_container.id = "youtube-full-captions-container";
 
-captions_container.style.position = "absolute";
-captions_container.style.left = "0";
-captions_container.style.bottom = "50px";
-captions_container.style.width = "100%";
-captions_container.style.height = "50px";
-
-// let video_element = document.querySelector(".video-stream.html5-main-video");
-
 captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''><div>";
 
 let player_element = document.querySelector("#player");
