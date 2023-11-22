@@ -1,3 +1,38 @@
+function monitorElementPosition(element, container, onOutCallback, onInCallback) {
+	let isOutside = false;
+
+	const checkPosition = () => {
+		const elemRect = element.getBoundingClientRect();
+		const containerRect = container.getBoundingClientRect();
+
+		const outsideHorizontal = elemRect.right < containerRect.left || elemRect.left > containerRect.right;
+		const outsideVertical = elemRect.bottom < containerRect.top || elemRect.top > containerRect.bottom;
+
+		if ((outsideHorizontal || outsideVertical) && !isOutside) {
+			isOutside = true;
+			onOutCallback(element); // Call the out callback
+		} else if (!outsideHorizontal && !outsideVertical && isOutside) {
+			isOutside = false;
+			onInCallback(element); // Call the in callback
+		}
+	};
+
+	document.addEventListener('mousemove', checkPosition);
+	document.addEventListener('mouseup', checkPosition);
+	window.addEventListener('resize', checkPosition);
+
+	// Initial check
+	checkPosition();
+
+	// Optional: Return a function to stop monitoring
+	return () => {
+		document.removeEventListener('mousemove', checkPosition);
+		document.removeEventListener('mouseup', checkPosition);
+		window.removeEventListener('resize', checkPosition);
+	};
+
+}
+
 // Function to make a div draggable
 function makeDivDraggable(div) {
 	var startY, startTop;
@@ -33,13 +68,24 @@ captions_container.classList.add("youtube-full-captions-container");
 captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''><div>";
 let player_element = document.querySelector("#player");
 player_element.appendChild(captions_container);
+const captions_text_element = captions_container.querySelector(".youtube-full-captions-text");
+
 makeDivDraggable(captions_container);
+
+monitorElementPosition(captions_text_element,
+	player_element,
+	function(element){
+		element.classList.add("outside-container");
+	},
+	function(element){
+		element.classList.remove("outside-container");
+	});
+
 
 const fullscreen_captions_container = captions_container.cloneNode(true);
 let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
 fullscreen_player_element.appendChild(fullscreen_captions_container);
 makeDivDraggable(fullscreen_captions_container);
-
 
 const youtube_full_captions_text_elements = document.querySelectorAll('.youtube-full-captions-container .youtube-full-captions-text');
 

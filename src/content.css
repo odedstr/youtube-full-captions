@@ -17,6 +17,11 @@
 	margin: 0 auto;
 	cursor: grab;
 }
+.youtube-full-captions-container .youtube-full-captions-text.outside-container {
+	width: 100%;
+	background: black;
+}
+
 .caption-window.ytp-caption-window-bottom{
 	display: none;
 }
