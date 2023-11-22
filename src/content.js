@@ -35,12 +35,14 @@ function monitorElementPosition(element, container, onOutCallback, onInCallback)
 
 // Function to make a div draggable
 function makeDivDraggable(div) {
-	var startY, startTop;
+	var startY, startTopPercent, containerHeight;
 
 	// Function to handle the start of dragging
 	function onMouseDown(e) {
 		startY = e.clientY;
-		startTop = parseInt(window.getComputedStyle(div).top, 10);
+		containerHeight = div.parentElement.offsetHeight; // Get the height of the parent container
+		const startTop = parseInt(window.getComputedStyle(div).top, 10);
+		startTopPercent = (startTop / containerHeight) * 100; // Convert to percentage
 
 		document.addEventListener('mousemove', onMouseMove);
 		document.addEventListener('mouseup', onMouseUp);
@@ -48,8 +50,9 @@ function makeDivDraggable(div) {
 
 	// Function to handle the mouse movement
 	function onMouseMove(e) {
-		var newY = startTop + e.clientY - startY;
-		div.style.top = newY + 'px';
+		var deltaY = e.clientY - startY;
+		var newTopPercent = startTopPercent + (deltaY / containerHeight) * 100;
+		div.style.top = newTopPercent + '%'; // Set the top position in percentage
 	}
 
 	// Function to handle the end of dragging
