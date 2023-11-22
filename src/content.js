@@ -1,56 +1,27 @@
 
-
-// chrome.runtime.onInstalled.addListener(() => {
-//   chrome.action.setBadgeText({
-//     text: 'OFF'
-//   });
-// });
-//
-// "content_scripts": [
-// 	{
-// 		"js": ["content.js"],
-// 		"matches": [
-// 			"https://youtube.com/*",
-// 			"https://www.youtube.com/*"
-// 		]
-// 	}
-// ],
-
-
-// When the user clicks on the extension action
-// chrome.action.onClicked.addListener(async (tab) => {
-
-
-// console.debug('document.querySelector(\'[aria-label="Show transcript"]\')',
-// 		document.querySelector('[aria-label="Show transcript"]'));
-
 document.querySelector('[aria-label="Show transcript"]').click();
 
-
-
-// Create a new div element
-var captions_container = document.createElement("div");
-
-// Set an ID for the div
-captions_container.id = "youtube-full-captions-container";
-
+const captions_container = document.createElement("div");
+captions_container.classList.add("youtube-full-captions-container");
 captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''><div>";
-
 let player_element = document.querySelector("#player");
 player_element.appendChild(captions_container);
 
-// Step 1: Select the target div
-const targetDiv = document.querySelector('#youtube-full-captions-container .youtube-full-captions-text');
+const fullscreen_captions_container = captions_container.cloneNode(true);
+let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
+fullscreen_player_element.appendChild(fullscreen_captions_container);
 
-// Step 2: Function to copy contents
+const youtube_full_captions_text_elements = document.querySelectorAll('.youtube-full-captions-container .youtube-full-captions-text');
+
 function copyContents() {
 	const activeElement = document.querySelector('.ytd-transcript-segment-list-renderer.active');
 	if (activeElement) {
-		targetDiv.innerHTML = activeElement.querySelector("yt-formatted-string").innerHTML;
+		youtube_full_captions_text_elements.forEach(function(element) {
+			element.innerHTML = activeElement.querySelector("yt-formatted-string").innerHTML;
+		});
 	}
 }
 
-// Function to set up MutationObserver
 function setupObserver() {
 	const observer = new MutationObserver((mutations, obs) => {
 		for (let mutation of mutations) {
