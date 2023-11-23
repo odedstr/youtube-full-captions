@@ -112,7 +112,18 @@ const fullscreen_captions_container = captions_container.cloneNode(true);
 let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
 fullscreen_player_element.classList.add('youtube-full-captions-container-fullscreen');
 fullscreen_player_element.appendChild(fullscreen_captions_container);
+const fullscreen_captions_text_element = fullscreen_captions_container.querySelector(".youtube-full-captions-text");
+
 makeDivDraggable(fullscreen_captions_container);
+
+var fullscreenResizeObserver = new ResizeObserver(function(entries) {
+	// For all entries (there should only be one in this case)
+	for (let entry of entries) {
+		adjustFontSize(entry, 3, fullscreen_captions_text_element, 13.71, 27.35);
+	}
+});
+fullscreenResizeObserver.observe(fullscreen_player_element);
+
 
 const youtube_full_captions_text_elements = document.querySelectorAll('.youtube-full-captions-container .youtube-full-captions-text');
 
