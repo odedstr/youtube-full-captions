@@ -24,10 +24,12 @@
 	background: black;
 }
 
-body:not(.no-scroll) .youtube-full-captions-container-fullscreen{
+/* Hide the extension fullscreen and theater mode caption when we are in default view */
+ytd-watch-flexy:not([theater]):not([fullscreen]) .youtube-full-captions-container-fullscreen .youtube-full-captions-container{
 	display: none;
 }
 
+/* Hide the original captions */
 .caption-window.ytp-caption-window-bottom{
 	display: none;
 }
