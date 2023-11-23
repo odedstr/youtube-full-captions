@@ -1,3 +1,17 @@
+function adjustFontSize(entry, percentage, textElement, minFontSize, maxFontSize) {
+	var container = entry.target; // The container that was resized
+
+	var containerWidth = container.offsetWidth;
+
+	// Calculate font size: here, it's a percentage of the container's width
+	var fontSize = containerWidth * (percentage / 100);
+
+	// Ensure the font size is within the specified bounds
+	fontSize = Math.max(minFontSize, Math.min(fontSize, maxFontSize));
+
+	textElement.style.fontSize = fontSize + 'px';
+}
+
 function monitorElementPosition(element, container, onOutCallback, onInCallback) {
 	let isOutside = false;
 
@@ -83,6 +97,15 @@ monitorElementPosition(captions_text_element,
 	function(element){
 		element.classList.remove("outside-container");
 	});
+
+var resizeObserver = new ResizeObserver(function(entries) {
+	// For all entries (there should only be one in this case)
+	for (let entry of entries) {
+		adjustFontSize(entry, 3, captions_text_element, 13.71, 27.35);
+	}
+});
+resizeObserver.observe(player_element);
+
 
 
 const fullscreen_captions_container = captions_container.cloneNode(true);
