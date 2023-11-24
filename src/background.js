@@ -1,24 +1,26 @@
 let script_inserted = false;
 let full_captions_active = false;
 
-// chrome.runtime.onInstalled.addListener(async () => {
-// 	await chrome.action.setBadgeText({
-// 		text: 'OFF'
-// 	});
+function turnOff(){
+	chrome.scripting.removeCSS({
+		target: {tabId: tab.id},
+		files: ['content.css']
+	});
+
+	// Cancel everything that content.js does
+	chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+		chrome.tabs.sendMessage(tabs[0].id, {message: "turnOff"});
+	});
+	full_captions_active = false;
+}
+
+// chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+// 	if (changeInfo.status == 'complete') {
+// 		turnOff();
+// 	}
 // });
 
 chrome.action.onClicked.addListener(async (tab) => {
-
-	// // We retrieve the action badge to check if the extension is 'ON' or 'OFF'
-	// const prevState = await chrome.action.getBadgeText({ tabId: tab.id });
-	// // Next state will always be the opposite
-	// const nextState = prevState === 'ON' ? 'OFF' : 'ON';
-	//
-	// // Set the action badge to the next state
-	// await chrome.action.setBadgeText({
-	// 	tabId: tab.id,
-	// 	text: nextState
-	// });
 
 	if(!script_inserted){
 		script_inserted = true;
@@ -42,18 +44,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 		});
 	}
 	else{
-		// Remove the CSS
-		await chrome.scripting.removeCSS({
-			target: {tabId: tab.id},
-			files: ['content.css']
-		});
-
-		// Cancel everything that content.js does
-		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-			chrome.tabs.sendMessage(tabs[0].id, {message: "turnOff"});
-		});
-		full_captions_active = false;
+		turnOff();
 	}
-
 
 });
