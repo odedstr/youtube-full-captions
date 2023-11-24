@@ -156,6 +156,12 @@ if (typeof resizeObserver === 'undefined') {
 
 	async function turnOff() {
 
+		const transcript_close_button = document.querySelector("button[aria-label='Close transcript']");
+		console.debug(transcript_close_button);
+		if(transcript_close_button !== null){
+			transcript_close_button.click()
+		}
+
 		const caption_elements = document.querySelectorAll(".youtube-full-captions-container")
 		caption_elements.forEach(element => {
 			element.remove();
@@ -201,6 +207,20 @@ if (typeof resizeObserver === 'undefined') {
 		captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''>Loading...<div>";
 
 		await waitForElement("#player", -1);
+
+		// let video_element = document.querySelector("#player video");
+		// const video_change_observer = new MutationObserver(async function (mutationsList, obs, observer) {
+		// 	for (const mutation of mutationsList) {
+		// 		if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+		// 			console.debug("video src changed");
+		// 			obs.disconnect();
+		// 			await turnOff();
+		// 			await turnOn();
+		// 		}
+		// 	}
+		// });
+		// video_change_observer.observe(video_element, { attributes: true });
+
 		await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
 
 		let player_element = document.querySelector("#player");
@@ -227,7 +247,6 @@ if (typeof resizeObserver === 'undefined') {
 			}
 		});
 		resizeObserver.observe(player_element);
-
 
 		const fullscreen_captions_container = captions_container.cloneNode(true);
 		let fullscreen_player_element = document.querySelector("#player-full-bleed-container");

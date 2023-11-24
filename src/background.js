@@ -1,14 +1,14 @@
 let script_inserted = false;
 let full_captions_active = false;
 
-function turnOff(){
-	chrome.scripting.removeCSS({
+async function turnOff() {
+	await chrome.scripting.removeCSS({
 		target: {tabId: tab.id},
 		files: ['content.css']
 	});
 
 	// Cancel everything that content.js does
-	chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+	chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
 		chrome.tabs.sendMessage(tabs[0].id, {message: "turnOff"});
 	});
 	full_captions_active = false;
