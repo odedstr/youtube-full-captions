@@ -156,7 +156,7 @@ if (typeof resizeObserver === 'undefined') {
 
 	async function turnOff() {
 
-		const transcript_close_button = document.querySelector("button[aria-label='Close transcript']");
+		const transcript_close_button = document.querySelector("*[target-id='engagement-panel-searchable-transcript'] #visibility-button button");
 		console.debug(transcript_close_button);
 		if(transcript_close_button !== null){
 			transcript_close_button.click()
@@ -198,7 +198,7 @@ if (typeof resizeObserver === 'undefined') {
 			youtube_cc_button_unpressed.click();
 		}
 
-		const show_transcript_button_selector = '[aria-label="Show transcript"]';
+		const show_transcript_button_selector = '#structured-description .ytd-video-description-transcript-section-renderer button';
 		await waitForElement(show_transcript_button_selector, -1);
 		document.querySelector(show_transcript_button_selector).click();
 
