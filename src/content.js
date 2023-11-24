@@ -182,9 +182,12 @@ async function turnOff() {
 
 async function turnOn() {
 
-	const youtube_cc_button_selector = 'button.ytp-subtitles-button[aria-pressed="false"]';
-	await waitForElement(youtube_cc_button_selector, -1);
-	document.querySelector(youtube_cc_button_selector).click();
+	await waitForElement("button.ytp-subtitles-button", -1);
+
+	const youtube_cc_button_unpressed = document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]');
+	if(youtube_cc_button_unpressed !== null) {
+		youtube_cc_button_unpressed.click();
+	}
 
 	const show_transcript_button_selector = '[aria-label="Show transcript"]';
 	await waitForElement(show_transcript_button_selector, -1);
