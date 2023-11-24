@@ -195,7 +195,7 @@ async function turnOn() {
 
 	const captions_container = document.createElement("div");
 	captions_container.classList.add("youtube-full-captions-container");
-	captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''><div>";
+	captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''>Loading...<div>";
 
 	await waitForElement("#player", -1);
 	await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
@@ -237,7 +237,7 @@ async function turnOn() {
 	fullscreenResizeObserver = new ResizeObserver(function (entries) {
 		// For all entries (there should only be one in this case)
 		for (let entry of entries) {
-			adjustFontSize(entry, 3, fullscreen_captions_text_element, 13.71, 27.35);
+			adjustFontSize(entry, 3, fullscreen_captions_text_element, 13.71, 35);
 		}
 	});
 	fullscreenResizeObserver.observe(fullscreen_player_element);
