@@ -21,7 +21,7 @@
 	pointer-events: auto;
 }
 .youtube-full-captions-container .youtube-full-captions-text.outside-container {
-	width: 100%;
+	width: calc(100% - 20px); /* Because the padding is 10px, 100% is bigger wider the player */
 	background: black;
 }
 
