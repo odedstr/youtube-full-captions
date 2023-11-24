@@ -97,6 +97,47 @@ function makeDivDraggable(div) {
 	div.addEventListener('mousedown', onMouseDown);
 }
 
+function redirectClickEventOnElement(element) {
+	let isDragging = false;
+
+	element.addEventListener('mousedown', function(event) {
+		isDragging = false;
+	});
+
+	element.addEventListener('mousemove', function(event) {
+		isDragging = true;
+	});
+
+	element.addEventListener('mouseup', function(event) {
+		if (isDragging) {
+			// The element was dragged, do not redirect the click
+			return;
+		}
+
+		// Prevent the default action of the click
+		event.preventDefault();
+
+		// Get the x and y coordinates of the click
+		let x = event.clientX;
+		let y = event.clientY;
+
+		// Temporarily hide the clicked element
+		element.style.visibility = 'hidden';
+
+		// Find the element below the clicked element
+		let elementBelow = document.elementFromPoint(x, y);
+
+		// Restore the visibility of the clicked element
+		element.style.visibility = 'visible';
+
+		// If there is an element below, simulate a click on it
+		if (elementBelow) {
+			elementBelow.click();
+		}
+	});
+}
+
+
 (async () => {
 
 	const youtube_cc_button_selector = 'button.ytp-subtitles-button[aria-pressed="false"]';
@@ -119,6 +160,8 @@ function makeDivDraggable(div) {
 	player_element.appendChild(captions_container);
 	console.debug("After player_element.appendChild. captions_container:", captions_container);
 	const captions_text_element = captions_container.querySelector(".youtube-full-captions-text");
+
+	redirectClickEventOnElement(captions_container);
 
 	makeDivDraggable(captions_container);
 
