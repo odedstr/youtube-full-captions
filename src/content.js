@@ -78,6 +78,8 @@ function makeDivDraggable(div) {
 	div.addEventListener('mousedown', onMouseDown);
 }
 
+document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]').click();
+
 document.querySelector('[aria-label="Show transcript"]').click();
 
 const captions_container = document.createElement("div");
