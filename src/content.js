@@ -295,7 +295,7 @@ if (typeof resizeObserver === 'undefined') {
 					element.innerHTML = activeElement.querySelector("yt-formatted-string").innerHTML;
 					hide_captions_timeout_handle = setTimeout(function() {
 						element.style.display = 'none';
-					}, 5000);
+					}, 7000);
 				});
 			}
 		}
