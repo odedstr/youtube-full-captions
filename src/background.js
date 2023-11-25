@@ -1,25 +1,6 @@
 let script_inserted = false;
 let full_captions_active = false;
 
-async function turnOff() {
-	await chrome.scripting.removeCSS({
-		target: {tabId: tab.id},
-		files: ['content.css']
-	});
-
-	// Cancel everything that content.js does
-	chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-		chrome.tabs.sendMessage(tabs[0].id, {message: "turnOff"});
-	});
-	full_captions_active = false;
-}
-
-// chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-// 	if (changeInfo.status == 'complete') {
-// 		turnOff();
-// 	}
-// });
-
 chrome.action.onClicked.addListener(async (tab) => {
 
 	if(!script_inserted){
@@ -34,6 +15,11 @@ chrome.action.onClicked.addListener(async (tab) => {
 	if(!full_captions_active){
 		full_captions_active = true;
 
+		await chrome.scripting.removeCSS({
+			target: {tabId: tab.id},
+			files: ['content.css']
+		});
+
 		await chrome.scripting.insertCSS({
 			target: {tabId: tab.id},
 			files: ['content.css']
@@ -44,7 +30,17 @@ chrome.action.onClicked.addListener(async (tab) => {
 		});
 	}
 	else{
-		turnOff();
+		await chrome.scripting.removeCSS({
+			target: {tabId: tab.id},
+			files: ['content.css']
+		});
+
+		// Cancel everything that content.js does
+		chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
+			chrome.tabs.sendMessage(tabs[0].id, {message: "turnOff"});
+		});
+		full_captions_active = false;
+
 	}
 
 });

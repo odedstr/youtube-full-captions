@@ -5,6 +5,8 @@ if (typeof resizeObserver === 'undefined') {
 	let fullscreenResizeObserver = null;
 	let waitForActiveClassObserver = null;
 	let captions_text_element_stop_monitor_positison = null;
+	let fullscreen_captions_text_element_stop_monitor_positison = null;
+	let hide_captions_timeout_handle = null
 
 	chrome.runtime.onMessage.addListener(
 		async function (request, sender, sendResponse) {
@@ -175,6 +177,10 @@ if (typeof resizeObserver === 'undefined') {
 			captions_text_element_stop_monitor_positison();
 		}
 
+		if (fullscreen_captions_text_element_stop_monitor_positison != null) {
+			fullscreen_captions_text_element_stop_monitor_positison();
+		}
+
 		let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
 		fullscreen_player_element.classList.remove('youtube-full-captions-container-fullscreen');
 
@@ -256,6 +262,16 @@ if (typeof resizeObserver === 'undefined') {
 
 		makeDivDraggable(fullscreen_captions_container);
 
+		fullscreen_captions_text_element_stop_monitor_positison = monitorElementPosition(fullscreen_captions_text_element,
+			fullscreen_player_element,
+			function (element) {
+				element.classList.add("outside-container");
+			},
+			function (element) {
+				element.classList.remove("outside-container");
+			});
+
+
 		fullscreenResizeObserver = new ResizeObserver(function (entries) {
 			// For all entries (there should only be one in this case)
 			for (let entry of entries) {
@@ -271,7 +287,15 @@ if (typeof resizeObserver === 'undefined') {
 			const activeElement = document.querySelector('.ytd-transcript-segment-list-renderer.active');
 			if (activeElement) {
 				youtube_full_captions_text_elements.forEach(function (element) {
+
+					if(hide_captions_timeout_handle !== null) {
+						clearTimeout(hide_captions_timeout_handle);
+					}
+					element.style.display = 'block';
 					element.innerHTML = activeElement.querySelector("yt-formatted-string").innerHTML;
+					hide_captions_timeout_handle = setTimeout(function() {
+						element.style.display = 'none';
+					}, 5000);
 				});
 			}
 		}
