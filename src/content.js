@@ -13,7 +13,7 @@ if (typeof resizeObserver === 'undefined') {
 			if (request.message === "turnOn") {
 				await turnOn();
 			} else if (request.message === "turnOff") {
-				await turnOff();
+				location.reload();
 			}
 		}
 	);
@@ -156,46 +156,7 @@ if (typeof resizeObserver === 'undefined') {
 		});
 	}
 
-	async function turnOff() {
-
-		const transcript_close_button = document.querySelector("*[target-id='engagement-panel-searchable-transcript'] #visibility-button button");
-		console.debug(transcript_close_button);
-		if(transcript_close_button !== null){
-			transcript_close_button.click()
-		}
-
-		const caption_elements = document.querySelectorAll(".youtube-full-captions-container")
-		caption_elements.forEach(element => {
-			element.remove();
-		});
-
-		if (resizeObserver != null) {
-			resizeObserver.disconnect();
-		}
-
-		if (captions_text_element_stop_monitor_positison != null) {
-			captions_text_element_stop_monitor_positison();
-		}
-
-		if (fullscreen_captions_text_element_stop_monitor_positison != null) {
-			fullscreen_captions_text_element_stop_monitor_positison();
-		}
-
-		let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
-		fullscreen_player_element.classList.remove('youtube-full-captions-container-fullscreen');
-
-		if (fullscreenResizeObserver != null) {
-			fullscreenResizeObserver.disconnect();
-		}
-
-		if (waitForActiveClassObserver != null) {
-			waitForActiveClassObserver.disconnect();
-		}
-	}
-
 	async function turnOn() {
-
-		await turnOff();
 
 		await waitForElement("button.ytp-subtitles-button", -1);
 
@@ -213,19 +174,6 @@ if (typeof resizeObserver === 'undefined') {
 		captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''>Loading...<div>";
 
 		await waitForElement("#player", -1);
-
-		// let video_element = document.querySelector("#player video");
-		// const video_change_observer = new MutationObserver(async function (mutationsList, obs, observer) {
-		// 	for (const mutation of mutationsList) {
-		// 		if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-		// 			console.debug("video src changed");
-		// 			obs.disconnect();
-		// 			await turnOff();
-		// 			await turnOn();
-		// 		}
-		// 	}
-		// });
-		// video_change_observer.observe(video_element, { attributes: true });
 
 		await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
 
