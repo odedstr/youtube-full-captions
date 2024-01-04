@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Full Captions",
-  "description": "This extension changes the way auto-generated subtitles are displayed in Youtube. Instead of appearing word by word, the captions appear line by line, making it easier to read.",
+  "description": "Enhances YouTube's auto-generated subtitles to display line by line instead of word by word, for improved readability.",
   "version": "0.0.0.1",
   "author": "Oded Streigold",
   "icons": {
