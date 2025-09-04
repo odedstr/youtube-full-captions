@@ -1,267 +1,309 @@
+// content.js
+(() => {
+	// Cross-browser API alias
+	const api = typeof browser !== "undefined" ? browser : chrome;
 
-if (typeof resizeObserver === 'undefined') {
+	// Prevent duplicate injection across reinjections
+	if (window.__YTFULLCAP_BOOTED__) {
+		console.log("[YTFULLCAP] duplicate injection ignored");
+		return;
+	}
+	window.__YTFULLCAP_BOOTED__ = true;
+	console.log("[YTFULLCAP] content.js loaded");
 
-	let resizeObserver = null;
-	let fullscreenResizeObserver = null;
-	let waitForActiveClassObserver = null;
-	let captions_text_element_stop_monitor_positison = null;
-	let fullscreen_captions_text_element_stop_monitor_positison = null;
-	let hide_captions_timeout_handle = null
+	// Long-lived handles / state
+	const H = (window.__YTFULLCAP_HANDLES__ ||= {
+		on: false,
+		resizeObserver: null,
+		fullscreenResizeObserver: null,
+		stopMonitorMain: null,
+		stopMonitorFull: null,
+		hideTimeout: null,
+		// Time-based transcript sync
+		segments: [],
+		currentSegIndex: -1,
+		segmentsObserver: null,
+		videoListener: null,
+	});
 
-	chrome.runtime.onMessage.addListener(
-		async function (request, sender, sendResponse) {
-			if (request.message === "turnOn") {
-				await turnOn();
-			} else if (request.message === "turnOff") {
-				location.reload();
+	api.runtime.onMessage.addListener(async (req) => {
+		if (req.message === "turnOn") {
+			if (H.on) {
+				console.log("[YTFULLCAP] already ON, ignoring");
+				return;
 			}
+			H.on = true;
+			try {
+				await turnOn();
+			} catch (e) {
+				console.error("[YTFULLCAP] turnOn failed:", e);
+			}
+		} else if (req.message === "turnOff") {
+			location.reload();
 		}
-	);
+	});
 
+	// ---------- Helpers ----------
 	function waitForElement(selector, timeout = 30000) {
 		return new Promise((resolve, reject) => {
-			const intervalTime = 100; // Interval check time in milliseconds
-			let elapsedTime = 0; // Time elapsed since the function was called
-
-			const interval = setInterval(() => {
-				const element = document.querySelector(selector);
-				if (element) {
-					clearInterval(interval);
-					resolve(element);
-				} else if (timeout !== -1 && elapsedTime > timeout) {
-					clearInterval(interval);
-					reject(new Error(`Element with selector "${selector}" not found within ${timeout}ms`));
+			const intervalTime = 100;
+			let elapsed = 0;
+			const it = setInterval(() => {
+				const el = document.querySelector(selector);
+				if (el) {
+					clearInterval(it);
+					resolve(el);
+				} else if (timeout !== -1 && elapsed > timeout) {
+					clearInterval(it);
+					reject(new Error(`Element "${selector}" not found within ${timeout}ms`));
 				}
-				elapsedTime += intervalTime;
+				elapsed += intervalTime;
 			}, intervalTime);
 		});
 	}
 
-	function adjustFontSize(entry, percentage, textElement, minFontSize, maxFontSize) {
-		var container = entry.target; // The container that was resized
-
-		var containerWidth = container.offsetWidth;
-
-		// Calculate font size: here, it's a percentage of the container's width
-		var fontSize = containerWidth * (percentage / 100);
-
-		// Ensure the font size is within the specified bounds
-		fontSize = Math.max(minFontSize, Math.min(fontSize, maxFontSize));
-
-		textElement.style.fontSize = fontSize + 'px';
+	function adjustFontSize(entry, percentage, textElement, minPx, maxPx) {
+		const containerWidth = entry.target.offsetWidth;
+		let fontSize = containerWidth * (percentage / 100);
+		fontSize = Math.max(minPx, Math.min(fontSize, maxPx));
+		textElement.style.fontSize = fontSize + "px";
 	}
 
-	function monitorElementPosition(element, container, onOutCallback, onInCallback) {
+	function monitorElementPosition(element, container, onOut, onIn) {
 		let isOutside = false;
-
-		const checkPosition = () => {
+		const check = () => {
 			const elemRect = element.getBoundingClientRect();
-			const containerRect = container.getBoundingClientRect();
+			const contRect = container.getBoundingClientRect();
+			const outsideH = elemRect.right < contRect.left || elemRect.left > contRect.right;
+			const outsideV = elemRect.bottom < contRect.top || elemRect.top > contRect.bottom;
 
-			const outsideHorizontal = elemRect.right < containerRect.left || elemRect.left > containerRect.right;
-			const outsideVertical = elemRect.bottom < containerRect.top || elemRect.top > containerRect.bottom;
-
-			if ((outsideHorizontal || outsideVertical) && !isOutside) {
-				isOutside = true;
-				onOutCallback(element); // Call the out callback
-			} else if (!outsideHorizontal && !outsideVertical && isOutside) {
-				isOutside = false;
-				onInCallback(element); // Call the in callback
+			if ((outsideH || outsideV) && !isOutside) {
+				isOutside = true; onOut(element);
+			} else if (!outsideH && !outsideV && isOutside) {
+				isOutside = false; onIn(element);
 			}
 		};
 
-		document.addEventListener('mousemove', checkPosition);
-		document.addEventListener('mouseup', checkPosition);
-		window.addEventListener('resize', checkPosition);
+		document.addEventListener("mousemove", check);
+		document.addEventListener("mouseup", check);
+		window.addEventListener("resize", check);
+		check();
 
-		// Initial check
-		checkPosition();
-
-		// Optional: Return a function to stop monitoring
 		return () => {
-			document.removeEventListener('mousemove', checkPosition);
-			document.removeEventListener('mouseup', checkPosition);
-			window.removeEventListener('resize', checkPosition);
+			document.removeEventListener("mousemove", check);
+			document.removeEventListener("mouseup", check);
+			window.removeEventListener("resize", check);
 		};
-
 	}
 
 	function makeDivDraggable(div) {
-		var startY, startTopPercent, containerHeight;
+		let startY, startTopPercent, containerHeight;
 
-		// Function to handle the start of dragging
 		function onMouseDown(e) {
 			startY = e.clientY;
-			containerHeight = div.parentElement.offsetHeight; // Get the height of the parent container
-			const startTop = parseInt(window.getComputedStyle(div).top, 10);
-			startTopPercent = (startTop / containerHeight) * 100; // Convert to percentage
-
-			document.addEventListener('mousemove', onMouseMove);
-			document.addEventListener('mouseup', onMouseUp);
+			containerHeight = div.parentElement.offsetHeight;
+			const startTop = parseInt(getComputedStyle(div).top, 10);
+			startTopPercent = (startTop / containerHeight) * 100;
+			document.addEventListener("mousemove", onMouseMove);
+			document.addEventListener("mouseup", onMouseUp);
 		}
-
-		// Function to handle the mouse movement
 		function onMouseMove(e) {
-			var deltaY = e.clientY - startY;
-			var newTopPercent = startTopPercent + (deltaY / containerHeight) * 100;
-			div.style.top = newTopPercent + '%'; // Set the top position in percentage
+			const deltaY = e.clientY - startY;
+			const newTopPercent = startTopPercent + (deltaY / containerHeight) * 100;
+			div.style.top = newTopPercent + "%";
 		}
-
-		// Function to handle the end of dragging
 		function onMouseUp() {
-			document.removeEventListener('mousemove', onMouseMove);
-			document.removeEventListener('mouseup', onMouseUp);
+			document.removeEventListener("mousemove", onMouseMove);
+			document.removeEventListener("mouseup", onMouseUp);
 		}
 
-		div.addEventListener('mousedown', onMouseDown);
+		div.addEventListener("mousedown", onMouseDown);
 	}
 
 	function redirectClickEventOnElement(element) {
 		let isDragging = false;
-
-		element.addEventListener('mousedown', function (event) {
-			isDragging = false;
-		});
-
-		element.addEventListener('mousemove', function (event) {
-			isDragging = true;
-		});
-
-		element.addEventListener('mouseup', function (event) {
-			if (isDragging) {
-				// The element was dragged, do not redirect the click
-				return;
-			}
-
-			// Prevent the default action of the click
+		element.addEventListener("mousedown", () => { isDragging = false; });
+		element.addEventListener("mousemove", () => { isDragging = true; });
+		element.addEventListener("mouseup", (event) => {
+			if (isDragging) return;
 			event.preventDefault();
-
-			// Get the x and y coordinates of the click
-			let x = event.clientX;
-			let y = event.clientY;
-
-			// Temporarily hide the clicked element
-			element.style.visibility = 'hidden';
-
-			// Find the element below the clicked element
-			let elementBelow = document.elementFromPoint(x, y);
-
-			// Restore the visibility of the clicked element
-			element.style.visibility = 'visible';
-
-			// If there is an element below, simulate a click on it
-			if (elementBelow) {
-				elementBelow.click();
-			}
+			const { clientX: x, clientY: y } = event;
+			element.style.visibility = "hidden";
+			const below = document.elementFromPoint(x, y);
+			element.style.visibility = "visible";
+			if (below) below.click();
 		});
 	}
 
-	async function turnOn() {
+	// Timestamp parsing: "mm:ss" or "hh:mm:ss" → seconds
+	function parseTimestamp(text) {
+		const parts = text.trim().split(":").map(p => parseInt(p, 10));
+		if (!parts.length || parts.some(Number.isNaN)) return null;
+		return parts.reduce((acc, v) => acc * 60 + v, 0);
+	}
 
-		await waitForElement("button.ytp-subtitles-button", -1);
-
-		const youtube_cc_button_unpressed = document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]');
-		if (youtube_cc_button_unpressed !== null) {
-			youtube_cc_button_unpressed.click();
-		}
-
-		const show_transcript_button_selector = '#structured-description .ytd-video-description-transcript-section-renderer button';
-		await waitForElement(show_transcript_button_selector, -1);
-		document.querySelector(show_transcript_button_selector).click();
-
-		const captions_container = document.createElement("div");
-		captions_container.classList.add("youtube-full-captions-container");
-		captions_container.innerHTML = "<div class='youtube-full-captions-text' style=''>Loading...<div>";
-
-		await waitForElement("#player", -1);
-
-		await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
-
-		let player_element = document.querySelector("#player");
-		player_element.appendChild(captions_container);
-		const captions_text_element = captions_container.querySelector(".youtube-full-captions-text");
-
-		redirectClickEventOnElement(captions_container);
-
-		makeDivDraggable(captions_container);
-
-		captions_text_element_stop_monitor_positison = monitorElementPosition(captions_text_element,
-			player_element,
-			function (element) {
-				element.classList.add("outside-container");
-			},
-			function (element) {
-				element.classList.remove("outside-container");
-			});
-
-		resizeObserver = new ResizeObserver(function (entries) {
-			// For all entries (there should only be one in this case)
-			for (let entry of entries) {
-				adjustFontSize(entry, 3, captions_text_element, 13.71, 27.35);
-			}
+	// Build transcript index (start seconds → HTML text)
+	function buildTranscriptIndex() {
+		const nodes = document.querySelectorAll("ytd-transcript-segment-renderer");
+		const segs = [];
+		nodes.forEach((node) => {
+			const tsEl = node.querySelector(".segment-timestamp");
+			const txtEl = node.querySelector(".segment-text");
+			if (!tsEl || !txtEl) return;
+			const t = parseTimestamp(tsEl.textContent || "");
+			if (t === null) return;
+			segs.push({ start: t, html: txtEl.innerHTML });
 		});
-		resizeObserver.observe(player_element);
+		segs.sort((a, b) => a.start - b.start);
+		H.segments = segs;
+		H.currentSegIndex = -1;
+		// console.log("[YTFULLCAP] transcript indexed:", segs.length, "segments");
+	}
 
-		const fullscreen_captions_container = captions_container.cloneNode(true);
-		let fullscreen_player_element = document.querySelector("#player-full-bleed-container");
-		fullscreen_player_element.classList.add('youtube-full-captions-container-fullscreen');
-		fullscreen_player_element.appendChild(fullscreen_captions_container);
-		const fullscreen_captions_text_element = fullscreen_captions_container.querySelector(".youtube-full-captions-text");
-
-		makeDivDraggable(fullscreen_captions_container);
-
-		fullscreen_captions_text_element_stop_monitor_positison = monitorElementPosition(fullscreen_captions_text_element,
-			fullscreen_player_element,
-			function (element) {
-				element.classList.add("outside-container");
-			},
-			function (element) {
-				element.classList.remove("outside-container");
-			});
-
-
-		fullscreenResizeObserver = new ResizeObserver(function (entries) {
-			// For all entries (there should only be one in this case)
-			for (let entry of entries) {
-				adjustFontSize(entry, 3, fullscreen_captions_text_element, 13.71, 35);
-			}
-		});
-		fullscreenResizeObserver.observe(fullscreen_player_element);
-
-
-		const youtube_full_captions_text_elements = document.querySelectorAll('.youtube-full-captions-container .youtube-full-captions-text');
-
-		function copyContents() {
-			const activeElement = document.querySelector('.ytd-transcript-segment-list-renderer.active');
-			if (activeElement) {
-				youtube_full_captions_text_elements.forEach(function (element) {
-
-					if(hide_captions_timeout_handle !== null) {
-						clearTimeout(hide_captions_timeout_handle);
-					}
-					element.style.display = 'block';
-					element.innerHTML = activeElement.querySelector("yt-formatted-string").innerHTML;
-					hide_captions_timeout_handle = setTimeout(function() {
-						element.style.display = 'none';
-					}, 7000);
-				});
-			}
+	// Binary search for current segment by time 't'
+	function indexForTime(t) {
+		const segs = H.segments;
+		if (!segs || segs.length === 0) return -1;
+		let lo = 0, hi = segs.length - 1, ans = -1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1;
+			if (segs[mid].start <= t) { ans = mid; lo = mid + 1; }
+			else { hi = mid - 1; }
 		}
+		return ans;
+	}
 
-		await waitForElement('#segments-container.ytd-transcript-segment-list-renderer', -1);
+	// Attach a single timeupdate listener (idempotent)
+	function startTimeSync(video, allCaptionTexts) {
+		if (H.videoListener) return;
 
-		waitForActiveClassObserver = new MutationObserver((mutations, obs) => {
-			for (let mutation of mutations) {
-				if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-					copyContents();
+		H.videoListener = () => {
+			if (!H.segments || H.segments.length === 0) return;
+			const t = video.currentTime || 0;
+			const i = indexForTime(t);
+			if (i < 0 || i === H.currentSegIndex) return;
+
+			H.currentSegIndex = i;
+			const html = H.segments[i].html;
+			allCaptionTexts.forEach((el) => {
+				if (H.hideTimeout) clearTimeout(H.hideTimeout);
+				el.style.display = "block";
+				el.innerHTML = html;
+			});
+			H.hideTimeout = setTimeout(() => {
+				allCaptionTexts.forEach(el => { el.style.display = "none"; });
+			}, 7000);
+		};
+
+		video.addEventListener("timeupdate", H.videoListener);
+	}
+
+	// Observe transcript changes (e.g., language switch) to rebuild index
+	function observeTranscriptChanges(listEl) {
+		if (H.segmentsObserver) return;
+		H.segmentsObserver = new MutationObserver((muts) => {
+			for (const m of muts) {
+				if (m.type === "childList") {
+					buildTranscriptIndex();
+					break;
 				}
 			}
 		});
-
-		const config = {attributes: true, childList: true, subtree: true};
-		const parentElement = document.querySelector('#segments-container.ytd-transcript-segment-list-renderer');
-		waitForActiveClassObserver.observe(parentElement, config);
-
+		H.segmentsObserver.observe(listEl, { childList: true, subtree: true });
 	}
 
-}
+	// ---------- Main ----------
+	async function turnOn() {
+		// Ensure CC is on
+		await waitForElement("button.ytp-subtitles-button", -1);
+		const ccBtn = document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]');
+		if (ccBtn) ccBtn.click();
+
+		// Try to open transcript panel (some videos won’t have it)
+		const transcriptBtnSel = "#structured-description .ytd-video-description-transcript-section-renderer button";
+		try {
+			await waitForElement(transcriptBtnSel, 8000);
+			const transcriptBtn = document.querySelector(transcriptBtnSel);
+			if (transcriptBtn) transcriptBtn.click();
+		} catch {
+			console.warn("[YTFULLCAP] transcript button not found (continuing)");
+		}
+
+		// Create/reuse caption containers
+		await waitForElement("#player", -1);
+		await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
+
+		const player = document.querySelector("#player");
+		let captionsContainer = player.querySelector(".youtube-full-captions-container");
+		if (!captionsContainer) {
+			captionsContainer = document.createElement("div");
+			captionsContainer.classList.add("youtube-full-captions-container");
+			captionsContainer.innerHTML = "<div class='youtube-full-captions-text'>Loading...</div>";
+			player.appendChild(captionsContainer);
+			redirectClickEventOnElement(captionsContainer);
+			makeDivDraggable(captionsContainer);
+		}
+		const captionsText = captionsContainer.querySelector(".youtube-full-captions-text");
+
+		// Fullscreen overlay
+		const fullPlayer = document.querySelector("#player-full-bleed-container");
+		let fullCaptionsContainer = fullPlayer.querySelector(".youtube-full-captions-container");
+		if (!fullCaptionsContainer) {
+			fullPlayer.classList.add("youtube-full-captions-container-fullscreen");
+			fullCaptionsContainer = captionsContainer.cloneNode(true);
+			fullPlayer.appendChild(fullCaptionsContainer);
+			makeDivDraggable(fullCaptionsContainer);
+		}
+		const fullCaptionsText = fullCaptionsContainer.querySelector(".youtube-full-captions-text");
+
+		// Outside/inside class toggling (attach once)
+		if (!H.stopMonitorMain) {
+			H.stopMonitorMain = monitorElementPosition(
+				captionsText, player,
+				(el) => el.classList.add("outside-container"),
+				(el) => el.classList.remove("outside-container"),
+			);
+		}
+		if (!H.stopMonitorFull) {
+			H.stopMonitorFull = monitorElementPosition(
+				fullCaptionsText, fullPlayer,
+				(el) => el.classList.add("outside-container"),
+				(el) => el.classList.remove("outside-container"),
+			);
+		}
+
+		// Resize observers (attach once)
+		if (!H.resizeObserver) {
+			H.resizeObserver = new ResizeObserver((entries) => {
+				for (const entry of entries) adjustFontSize(entry, 3, captionsText, 13.71, 27.35);
+			});
+			H.resizeObserver.observe(player);
+		}
+		if (!H.fullscreenResizeObserver) {
+			H.fullscreenResizeObserver = new ResizeObserver((entries) => {
+				for (const entry of entries) adjustFontSize(entry, 3, fullCaptionsText, 13.71, 35);
+			});
+			H.fullscreenResizeObserver.observe(fullPlayer);
+		}
+
+		const allCaptionTexts = document.querySelectorAll(
+			".youtube-full-captions-container .youtube-full-captions-text"
+		);
+
+		// Build transcript index & start time-based sync
+		try {
+			const listEl = await waitForElement("#segments-container.ytd-transcript-segment-list-renderer", 10000);
+			buildTranscriptIndex();
+			observeTranscriptChanges(listEl);
+		} catch {
+			console.warn("[YTFULLCAP] transcript segments not found (continuing; no captions will show)");
+		}
+
+		const video = document.querySelector("video");
+		if (video) {
+			startTimeSync(video, allCaptionTexts);
+		} else {
+			console.warn("[YTFULLCAP] <video> element not found");
+		}
+	}
+})();
