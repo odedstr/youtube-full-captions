@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube Full Captions",
-  "description": "Show YouTube captions line-by-line by syncing from the transcript timestamps.",
-  "version": "0.0.0.2",
+  "version": "0.0.0.3",
+  "description": "Show YouTube captions line-by-line by syncing from transcript timestamps.",
   "author": "Oded Streigold",
   "icons": {
     "16": "images/icon-16.png",
@@ -19,9 +19,18 @@
     },
     "default_title": "YouTube Full Captions — OFF (click to turn ON)"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
-  "permissions": ["scripting", "activeTab", "storage", "tabs"],
-  "host_permissions": ["*://*.youtube.com/*"]
+  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "tabs",
+    "storage",
+    "contextMenus",
+    "windows"
+  ],
+  "host_permissions": ["*://*.youtube.com/*"],
+  "web_accessible_resources": [{
+    "resources": ["settings.html", "settings.js", "settings.css"],
+    "matches": ["<all_urls>"]
+  }]
 }

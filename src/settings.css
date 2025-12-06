@@ -1,0 +1,52 @@
+body {
+	font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+	padding: 16px;
+}
+
+h1 {
+	font-size: 16px;
+	margin: 0 0 12px;
+}
+
+label {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 8px;
+	align-items: center;
+	margin: 10px 0;
+}
+
+.color-row {
+	grid-template-columns: 1fr auto auto;
+}
+
+.hex {
+	width: 110px;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.buttons {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+input[type="range"] {
+	width: 200px;
+}
+
+.scale-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.scale-row #fontScale {
+	flex: 1;
+}
+
+.scale-row #fontScaleVal {
+	min-width: 3.5em;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}

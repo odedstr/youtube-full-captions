@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Caption Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+<h1>Caption Settings</h1>
+
+<label for="fontScale">Font size (scale)</label>
+<div class="scale-row">
+    <input id="fontScale" type="range" min="0.5" max="2" step="0.05">
+    <span id="fontScaleVal">1.00×</span>
+</div>
+
+
+
+<label>
+    Font typeface
+    <select id="fontPreset">
+        <option value="inherit">YouTube default (inherit)</option>
+        <option value="system-sans">Sans-serif (system)</option>
+        <option value="system-serif">Serif (system)</option>
+        <option value="system-mono">Monospace (system)</option>
+    </select>
+</label>
+
+<label class="color-row">
+    Font color
+    <input id="fontColor" type="color">
+    <input id="fontColorHex" type="text" class="hex" spellcheck="false">
+</label>
+
+<label>
+    Font boldness
+    <select id="fontWeight">
+        <option value="100">Thin (100)</option>
+        <option value="200">Extra Light (200)</option>
+        <option value="300">Light (300)</option>
+        <option value="400">Regular (400)</option>
+        <option value="500">Medium (500)</option>
+        <option value="600">Semibold (600)</option>
+        <option value="700">Bold (700)</option>
+        <option value="800">Extra Bold (800)</option>
+        <option value="900">Black (900)</option>
+    </select>
+</label>
+
+
+<label>
+    Background opacity
+    <input id="bgOpacity" type="range" min="0" max="1" step="0.02">
+    <span id="bgOpacityVal"></span>
+</label>
+
+<div class="buttons">
+    <button id="reset" title="Restore defaults">Reset</button>
+</div>
+
+<script src="settings.js"></script>
+</body>
+</html>

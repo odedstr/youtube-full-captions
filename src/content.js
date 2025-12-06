@@ -3,6 +3,8 @@
 	// Cross-browser API alias
 	const api = typeof browser !== "undefined" ? browser : chrome;
 
+
+
 	// Prevent duplicate injection across reinjections
 	if (window.__YTFULLCAP_BOOTED__) {
 		console.log("[YTFULLCAP] duplicate injection ignored");
@@ -26,21 +28,113 @@
 		videoListener: null,
 	});
 
-	api.runtime.onMessage.addListener(async (req) => {
-		if (req.message === "turnOn") {
-			if (H.on) {
-				console.log("[YTFULLCAP] already ON, ignoring");
-				return;
-			}
-			H.on = true;
+	const DEFAULTS = {
+		fontScale: 1.0,
+		fontPreset: "system-sans", // <- NEW
+		fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+		fontColor: "#ffffff",
+		fontWeight: "500",
+		bgOpacity: 0.61
+	};
+	H.settings = { ...DEFAULTS };
+
+	async function loadSettings() {
+		return new Promise((resolve) => {
 			try {
-				await turnOn();
-			} catch (e) {
-				console.error("[YTFULLCAP] turnOn failed:", e);
+				api.storage.sync.get(Object.keys(DEFAULTS), (data) => {
+					H.settings = { ...DEFAULTS, ...(data || {}) };
+					resolve(H.settings);
+				});
+			} catch {
+				H.settings = { ...DEFAULTS };
+				resolve(H.settings);
 			}
-		} else if (req.message === "turnOff") {
-			location.reload();
+		});
+	}
+
+	function resolveFamily(settings) {
+		switch (settings.fontPreset) {
+			case "inherit":     return null; // means don't set inline
+			case "system-serif":return "ui-serif, Georgia, 'Times New Roman', Times, serif";
+			case "system-mono": return "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace";
+			case "system-sans":
+			default:
+				// Prefer stored fontFamily if present; else system-sans
+				return settings.fontFamily || "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
 		}
+	}
+
+	function applyStylesTo(el) {
+		if (!el) return;
+		const fam = resolveFamily(H.settings);
+
+		if (fam === null) {
+			// Remove any previous inline font-family so YouTube’s default takes over
+			el.style.removeProperty("font-family");
+		} else {
+			el.style.fontFamily = fam;
+		}
+
+		el.style.color = H.settings.fontColor;
+		el.style.fontWeight = H.settings.fontWeight;
+		el.style.background = `rgba(0,0,0,${H.settings.bgOpacity})`;
+	}
+
+
+
+
+
+
+	// Unified, async onMessage handler
+	api.runtime.onMessage.addListener((req) => {
+		if (!req || !req.message) return;
+
+		(async () => {
+			switch (req.message) {
+				case "ytfc:applySettings": {
+					await loadSettings();
+
+					// Re-apply styles to all caption nodes
+					document.querySelectorAll(".youtube-full-captions-text").forEach(applyStylesTo);
+
+					// Recompute font size now (no reliance on resize)
+					const captionsText     = document.querySelector("#player .youtube-full-captions-text");
+					const fullCaptionsText = document.querySelector("#player-full-bleed-container .youtube-full-captions-text");
+					const player           = document.querySelector("#player");
+					const fullPlayer       = document.querySelector("#player-full-bleed-container");
+
+					recomputeFontSizeNow(player,     captionsText,     13.71, 27.35);
+					recomputeFontSizeNow(fullPlayer, fullCaptionsText, 13.71, 35);
+
+					// Optional: nudge any observers
+					window.dispatchEvent(new Event("resize"));
+					break;
+				}
+
+				case "turnOn": {
+					if (H.on) {
+						console.log("[YTFULLCAP] already ON, ignoring");
+						break;
+					}
+					H.on = true;
+					try {
+						await turnOn();
+					} catch (e) {
+						console.error("[YTFULLCAP] turnOn failed:", e);
+					}
+					break;
+				}
+
+				case "turnOff": {
+					location.reload();
+					break;
+				}
+
+				default:
+					// no-op
+					break;
+			}
+		})().catch((e) => console.error("[YTFULLCAP] onMessage error:", e));
 	});
 
 	// ---------- Helpers ----------
@@ -62,11 +156,39 @@
 		});
 	}
 
+	function getScale() {
+		const s = H.settings?.fontScale ?? 1;
+		return Math.max(0.5, Math.min(2, Number(s) || 1));
+	}
+
+
 	function adjustFontSize(entry, percentage, textElement, minPx, maxPx) {
-		const containerWidth = entry.target.offsetWidth;
-		let fontSize = containerWidth * (percentage / 100);
-		fontSize = Math.max(minPx, Math.min(fontSize, maxPx));
-		textElement.style.fontSize = fontSize + "px";
+		const scale = getScale();
+		const minScaled = minPx * scale;
+		const maxScaled = maxPx * scale;
+
+		const width = entry.target.offsetWidth;
+		let fontSize = width * (percentage / 100) * scale;
+
+		if (Number.isFinite(minScaled)) fontSize = Math.max(minScaled, fontSize);
+		if (Number.isFinite(maxScaled)) fontSize = Math.min(maxScaled, fontSize);
+
+		textElement.style.fontSize = `${fontSize}px`;
+	}
+
+	function recomputeFontSizeNow(containerEl, textEl, minPx, maxPx) {
+		if (!containerEl || !textEl) return;
+		const scale = getScale();
+		const minScaled = minPx * scale;
+		const maxScaled = maxPx * scale;
+
+		const width = containerEl.offsetWidth || containerEl.getBoundingClientRect().width || 0;
+		let fontSize = width * (3 / 100) * scale;
+
+		if (Number.isFinite(minScaled)) fontSize = Math.max(minScaled, fontSize);
+		if (Number.isFinite(maxScaled)) fontSize = Math.min(maxScaled, fontSize);
+
+		textEl.style.fontSize = `${fontSize}px`;
 	}
 
 	function monitorElementPosition(element, container, onOut, onIn) {
@@ -214,6 +336,7 @@
 
 	// ---------- Main ----------
 	async function turnOn() {
+		await loadSettings();
 		// Ensure CC is on
 		await waitForElement("button.ytp-subtitles-button", -1);
 		const ccBtn = document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]');
@@ -245,6 +368,7 @@
 		}
 		const captionsText = captionsContainer.querySelector(".youtube-full-captions-text");
 
+
 		// Fullscreen overlay
 		const fullPlayer = document.querySelector("#player-full-bleed-container");
 		let fullCaptionsContainer = fullPlayer.querySelector(".youtube-full-captions-container");
@@ -255,6 +379,18 @@
 			makeDivDraggable(fullCaptionsContainer);
 		}
 		const fullCaptionsText = fullCaptionsContainer.querySelector(".youtube-full-captions-text");
+		applyStylesTo(captionsText);
+		applyStylesTo(fullCaptionsText);
+
+		// recomputeFontSizeNow(player, captionsText, 13.71, 27.35);
+		// recomputeFontSizeNow(fullPlayer, fullCaptionsText, 13.71, 35);
+
+		// recomputeFontSizeNow(player,     captionsText,     8, 90);
+		// recomputeFontSizeNow(fullPlayer, fullCaptionsText, 8, 120);
+
+		recomputeFontSizeNow(player, captionsText, 8, 60);
+		recomputeFontSizeNow(fullPlayer, fullCaptionsText, 8, 80);
+
 
 		// Outside/inside class toggling (attach once)
 		if (!H.stopMonitorMain) {
@@ -275,16 +411,21 @@
 		// Resize observers (attach once)
 		if (!H.resizeObserver) {
 			H.resizeObserver = new ResizeObserver((entries) => {
-				for (const entry of entries) adjustFontSize(entry, 3, captionsText, 13.71, 27.35);
+				// for (const entry of entries) adjustFontSize(entry, 3, captionsText, 13.71, 27.35);
+				// for (const entry of entries) adjustFontSize(entry, 3, captionsText, 8, 90);
+				for (const e of entries) adjustFontSize(e, 3, captionsText, 8, 60);
 			});
 			H.resizeObserver.observe(player);
 		}
 		if (!H.fullscreenResizeObserver) {
 			H.fullscreenResizeObserver = new ResizeObserver((entries) => {
-				for (const entry of entries) adjustFontSize(entry, 3, fullCaptionsText, 13.71, 35);
+				// for (const entry of entries) adjustFontSize(entry, 3, fullCaptionsText, 13.71, 35);
+				// for (const entry of entries) adjustFontSize(entry, 3, fullCaptionsText, 8, 120);
+				for (const e of entries) adjustFontSize(e, 3, fullCaptionsText, 8, 80);
 			});
 			H.fullscreenResizeObserver.observe(fullPlayer);
 		}
+
 
 		const allCaptionTexts = document.querySelectorAll(
 			".youtube-full-captions-container .youtube-full-captions-text"
