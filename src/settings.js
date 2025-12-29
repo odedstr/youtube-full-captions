@@ -1,4 +1,4 @@
-// --- Defaults ---
+// --- Defaults (also the "Classic" preset) ---
 const DEFAULTS = {
 	fontScale: 1.0,
 	fontPreset: "system-sans",
@@ -7,10 +7,29 @@ const DEFAULTS = {
 	fontWeight: "500",
 	bgOpacity: 0.61
 };
+const PRESETS = {
+	Minimalistic: {
+		fontScale: 0.9,
+		fontPreset: "system-sans",
+		fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+		fontColor: "#ffffff",
+		fontWeight: "100",
+		bgOpacity: 0.15
+	},
+	Classic: { ...DEFAULTS },
+	HighContrast: {
+		fontScale: 1.5, // ← was 1.6
+		fontPreset: "system-sans",
+		fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+		fontColor: "#ffd400",
+		fontWeight: "700",
+		bgOpacity: 0.9
+	}
+};
 
+
+// ---- helpers ---------------------------------------------------
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-// Map preset → CSS stack. "inherit" returns null so content.js removes inline font-family
 function presetToFamily(preset) {
 	switch (preset) {
 		case "inherit":      return null;
@@ -20,86 +39,115 @@ function presetToFamily(preset) {
 		default:             return "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
 	}
 }
+function debounce(fn, ms=120){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
-// --- Element refs (define ONCE) ---
+// ---- element refs (ensure these IDs exist in settings.html) -----
+const presetSelect   = document.querySelector("#presetSelect");
 const fontScaleEl    = document.querySelector("#fontScale");
 const fontScaleValEl = document.querySelector("#fontScaleVal");
 const fontPresetEl   = document.querySelector("#fontPreset");
 const fontColorEl    = document.querySelector("#fontColor");
 const fontColorHex   = document.querySelector("#fontColorHex");
-const fontWeightEl   = document.querySelector("#fontWeight");
+const fontWeightEl   = document.querySelector("#fontWeight"); // 100..900
 const bgOpacityEl    = document.querySelector("#bgOpacity");
-const resetBtn = document.querySelector("#reset");
 
-
-// helper to show value like "1.25×"
+// live scale label: "1.25×"
 function showScaleLabel(v) {
 	const num = clamp(Number(v) || 1, 0.5, 2);
 	fontScaleValEl.textContent = num.toFixed(2) + "×";
 }
 
-// Debounced instant save + broadcast
-function debounce(fn, ms=120){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+// cache for current stored family so "inherit" doesn't need async read every time
+let fontFamilyCached = DEFAULTS.fontFamily;
 
-const saveAndBroadcast = debounce(async () => {
-	const preset   = fontPresetEl.value;
-	const resolved = presetToFamily(preset); // null if "inherit"
-
-	// If preset is "inherit", keep existing stored family (unused by content.js in this mode)
-	let finalFamily = resolved;
-	if (finalFamily === null) {
-		const cur = await chrome.storage.sync.get("fontFamily");
-		finalFamily = cur.fontFamily ?? DEFAULTS.fontFamily;
-	}
-
-	const cfg = {
+// Build config from current UI controls
+function buildCfgFromUI() {
+	const preset   = fontPresetEl.value;           // inherit/system-sans/system-serif/system-mono
+	const resolved = presetToFamily(preset);       // null means "inherit"
+	return {
 		fontScale: clamp(parseFloat(fontScaleEl.value), 0.5, 2),
 		fontPreset: preset,
-		fontFamily: finalFamily,
+		fontFamily: resolved ?? fontFamilyCached,     // keep last stored if inherit
 		fontColor: (fontColorEl.value || DEFAULTS.fontColor).toLowerCase(),
-		fontWeight: fontWeightEl.value,            // 100–900 from your dropdown
+		fontWeight: fontWeightEl.value,
 		bgOpacity: parseFloat(bgOpacityEl.value)
 	};
+}
+
+// Apply a config object to the UI controls (no storage)
+function applyCfgToUI(cfg) {
+	fontScaleEl.value  = cfg.fontScale;
+	showScaleLabel(cfg.fontScale);
+	fontPresetEl.value = cfg.fontPreset;
+	fontColorEl.value  = cfg.fontColor;
+	fontColorHex.value = cfg.fontColor;
+	fontWeightEl.value = cfg.fontWeight;
+	bgOpacityEl.value  = cfg.bgOpacity;
+}
+
+// Core writer + broadcaster (immediate)
+async function writeAndBroadcast() {
+	const cfg = buildCfgFromUI();
+	fontFamilyCached = cfg.fontFamily;
 
 	await chrome.storage.sync.set(cfg);
+	// mirror into "Current"
+	await chrome.storage.sync.set({ currentPreset: cfg });
 
-	// Notify all YouTube tabs to apply immediately
 	const tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" });
-	await Promise.all(
-		tabs.map(t => chrome.tabs.sendMessage(t.id, { message: "ytfc:applySettings" }).catch(() => {}))
-	);
-}, 120);
+	const api = (typeof browser !== "undefined") ? browser : chrome;
 
-resetBtn.addEventListener("click", async () => {
-	// 1) Write defaults to storage
-	await chrome.storage.sync.set(DEFAULTS);
+	const tasks = tabs.map((t) => (async () => {
+		try {
+			await api.tabs.sendMessage(t.id, { message: "ytfc:applySettings" });
+		} catch (_) {
+			// ignore tabs without the content script
+		}
+	})());
 
-	// 2) Reflect defaults in the UI immediately
-	fontScaleEl.value  = DEFAULTS.fontScale;
-	showScaleLabel(DEFAULTS.fontScale);
-	fontPresetEl.value = DEFAULTS.fontPreset;
-	fontColorEl.value  = DEFAULTS.fontColor;
-	fontColorHex.value = DEFAULTS.fontColor;
-	fontWeightEl.value = DEFAULTS.fontWeight;
-	bgOpacityEl.value  = DEFAULTS.bgOpacity;
+	await Promise.all(tasks);
 
-	// 3) Notify all YouTube tabs to apply now (don’t wait for debounce)
-	const tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" });
-	await Promise.all(
-		tabs.map(t => chrome.tabs.sendMessage(t.id, { message: "ytfc:applySettings" }).catch(() => {}))
-	);
-});
+}
 
+// Debounced version for sliders/typing
+const saveAndBroadcast = debounce(writeAndBroadcast, 120);
 
-// --- Wire inputs to save instantly ---
-fontScaleEl.addEventListener("input", () => {
-	showScaleLabel(fontScaleEl.value);
-	saveAndBroadcast();
-});
+// Load "Current" (or migrate from old keys) into UI on open
+async function loadCurrentIntoUI() {
+	const data = await chrome.storage.sync.get(["currentPreset", ...Object.keys(DEFAULTS)]);
+	const current = data.currentPreset
+		? { ...DEFAULTS, ...data.currentPreset }
+		: { ...DEFAULTS, ...data }; // migration path
+	fontFamilyCached = current.fontFamily;
+	applyCfgToUI(current);
+	// Per your spec: show "Current" when opening the page
+	if (presetSelect) presetSelect.value = "Current";
+}
+
+// ---- event wiring ----------------------------------------------
+
+// Preset dropdown (Minimalistic / Classic / HighContrast / Current)
+if (presetSelect) {
+	presetSelect.addEventListener("change", async () => {
+		const choice = presetSelect.value;
+		if (choice === "Current") {
+			await loadCurrentIntoUI();         // just reflect Current; no write
+		} else {
+			const presetCfg = PRESETS[choice] || DEFAULTS;
+			applyCfgToUI(presetCfg);           // update UI
+			await writeAndBroadcast();         // apply immediately + save into Current
+			// Do NOT change presetSelect here — it stays on the chosen preset
+		}
+	});
+}
+
+// Controls that should save debounced
+fontScaleEl.addEventListener("input",  () => { showScaleLabel(fontScaleEl.value); saveAndBroadcast(); });
 fontPresetEl.addEventListener("change", saveAndBroadcast);
 fontWeightEl.addEventListener("change", saveAndBroadcast);
 bgOpacityEl.addEventListener("input",   saveAndBroadcast);
 
+// Color inputs
 fontColorEl.addEventListener("input", () => {
 	fontColorHex.value = (fontColorEl.value || "").toLowerCase();
 	saveAndBroadcast();
@@ -112,17 +160,5 @@ fontColorHex.addEventListener("input", () => {
 	}
 });
 
-// --- Initial load ---
-(async function load() {
-	const data = await chrome.storage.sync.get(Object.keys(DEFAULTS));
-	const cfg  = { ...DEFAULTS, ...data };
-
-	fontScaleEl.value    = cfg.fontScale;
-	fontPresetEl.value   = cfg.fontPreset;
-	fontColorEl.value    = cfg.fontColor;
-	fontColorHex.value   = cfg.fontColor;
-	fontWeightEl.value   = cfg.fontWeight;
-	bgOpacityEl.value    = cfg.bgOpacity;
-
-	showScaleLabel(cfg.fontScale);
-})();
+// Initial load
+loadCurrentIntoUI();
