@@ -265,21 +265,50 @@
 	}
 
 	// Build transcript index (start seconds → HTML text)
+	function getTranscriptPanel() {
+		return (
+			document.querySelector(
+				'ytd-engagement-panel-section-list-renderer[target-id="PAmodern_transcript_view"]'
+			) ||
+			document.querySelector(
+				'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]'
+			)
+		);
+	}
+
 	function buildTranscriptIndex() {
-		const nodes = document.querySelectorAll("ytd-transcript-segment-renderer");
+		const panel = getTranscriptPanel();
+
+		if (!panel) {
+			H.segments = [];
+			H.currentSegIndex = -1;
+			console.warn("[YTFULLCAP] transcript panel not found");
+			return;
+		}
+
+		const nodes = panel.querySelectorAll("transcript-segment-view-model");
 		const segs = [];
+
 		nodes.forEach((node) => {
-			const tsEl = node.querySelector(".segment-timestamp");
-			const txtEl = node.querySelector(".segment-text");
+			const tsEl = node.querySelector(".ytwTranscriptSegmentViewModelTimestamp");
+			const txtEl = node.querySelector("span.yt-core-attributed-string");
+
 			if (!tsEl || !txtEl) return;
+
 			const t = parseTimestamp(tsEl.textContent || "");
 			if (t === null) return;
-			segs.push({ start: t, html: txtEl.innerHTML });
+
+			segs.push({
+				start: t,
+				html: txtEl.innerHTML
+			});
 		});
+
 		segs.sort((a, b) => a.start - b.start);
 		H.segments = segs;
 		H.currentSegIndex = -1;
-		// console.log("[YTFULLCAP] transcript indexed:", segs.length, "segments");
+
+		console.log("[YTFULLCAP] built segments:", segs.length);
 	}
 
 	// Binary search for current segment by time 't'
@@ -323,6 +352,7 @@
 	// Observe transcript changes (e.g., language switch) to rebuild index
 	function observeTranscriptChanges(listEl) {
 		if (H.segmentsObserver) return;
+
 		H.segmentsObserver = new MutationObserver((muts) => {
 			for (const m of muts) {
 				if (m.type === "childList") {
@@ -331,14 +361,17 @@
 				}
 			}
 		});
+
 		H.segmentsObserver.observe(listEl, { childList: true, subtree: true });
 	}
 
 	// ---------- Main ----------
 	async function turnOn() {
+		console.log("[YTFULLCAP] turnOn start");
 		await loadSettings();
 		// Ensure CC is on
 		await waitForElement("button.ytp-subtitles-button", -1);
+		console.log("[YTFULLCAP] subtitles button found");
 		const ccBtn = document.querySelector('button.ytp-subtitles-button[aria-pressed="false"]');
 		if (ccBtn) ccBtn.click();
 
@@ -348,13 +381,16 @@
 			await waitForElement(transcriptBtnSel, 8000);
 			const transcriptBtn = document.querySelector(transcriptBtnSel);
 			if (transcriptBtn) transcriptBtn.click();
+			console.log("[YTFULLCAP] transcript button clicked");
 		} catch {
 			console.warn("[YTFULLCAP] transcript button not found (continuing)");
 		}
 
 		// Create/reuse caption containers
 		await waitForElement("#player", -1);
+		console.log("[YTFULLCAP] player found");
 		await waitForElement(".caption-window.ytp-caption-window-bottom", -1);
+		console.log("[YTFULLCAP] original caption window found");
 
 		const player = document.querySelector("#player");
 		let captionsContainer = player.querySelector(".youtube-full-captions-container");
@@ -366,6 +402,7 @@
 			redirectClickEventOnElement(captionsContainer);
 			makeDivDraggable(captionsContainer);
 		}
+		console.log("[YTFULLCAP] captions container added");
 		const captionsText = captionsContainer.querySelector(".youtube-full-captions-text");
 
 
@@ -433,15 +470,42 @@
 
 		// Build transcript index & start time-based sync
 		try {
-			const listEl = await waitForElement("#segments-container.ytd-transcript-segment-list-renderer", 10000);
+			console.log("[YTFULLCAP] waiting for transcript panel");
+
+			const transcriptPanel = await Promise.any([
+				waitForElement(
+					'ytd-engagement-panel-section-list-renderer[target-id="PAmodern_transcript_view"]',
+					10000
+				),
+				waitForElement(
+					'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
+					10000
+				)
+			]);
+
+			console.log("[YTFULLCAP] transcript panel found");
+			console.log(
+				"[YTFULLCAP] transcript rows in PAmodern_transcript_view:",
+				document.querySelectorAll(
+					'ytd-engagement-panel-section-list-renderer[target-id="PAmodern_transcript_view"] transcript-segment-view-model'
+				).length
+			);
+			console.log(
+				"[YTFULLCAP] transcript rows in engagement-panel-searchable-transcript:",
+				document.querySelectorAll(
+					'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] transcript-segment-view-model'
+				).length
+			);
+
 			buildTranscriptIndex();
-			observeTranscriptChanges(listEl);
+			observeTranscriptChanges(transcriptPanel);
 		} catch {
-			console.warn("[YTFULLCAP] transcript segments not found (continuing; no captions will show)");
+			console.warn("[YTFULLCAP] transcript panel not found (continuing; no captions will show)");
 		}
 
 		const video = document.querySelector("video");
 		if (video) {
+			console.log("[YTFULLCAP] video found:", !!video);
 			startTimeSync(video, allCaptionTexts);
 		} else {
 			console.warn("[YTFULLCAP] <video> element not found");

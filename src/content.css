@@ -41,3 +41,8 @@ ytd-watch-flexy:not([theater]):not([fullscreen]) .youtube-full-captions-containe
 	position: absolute;
 }
 
+/* Hide YouTube transcript panels opened by the extension */
+ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"],
+ytd-engagement-panel-section-list-renderer[target-id="PAmodern_transcript_view"] {
+	display: none !important;
+}
