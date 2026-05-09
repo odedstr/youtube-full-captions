@@ -264,7 +264,7 @@
 		return parts.reduce((acc, v) => acc * 60 + v, 0);
 	}
 
-	// Build transcript index (start seconds → HTML text)
+	// Build transcript index (start seconds → text)
 	function getTranscriptPanel() {
 		return (
 			document.querySelector(
@@ -291,7 +291,9 @@
 
 		nodes.forEach((node) => {
 			const tsEl = node.querySelector(".ytwTranscriptSegmentViewModelTimestamp");
-			const txtEl = node.querySelector("span.yt-core-attributed-string");
+			const txtEl = node.querySelector(
+				'span[role="text"], .ytAttributedStringHost, span.yt-core-attributed-string'
+			);
 
 			if (!tsEl || !txtEl) return;
 
@@ -300,7 +302,7 @@
 
 			segs.push({
 				start: t,
-				html: txtEl.innerHTML
+				text: txtEl.textContent || ""
 			});
 		});
 
@@ -335,11 +337,11 @@
 			if (i < 0 || i === H.currentSegIndex) return;
 
 			H.currentSegIndex = i;
-			const html = H.segments[i].html;
+			const text = H.segments[i].text;
 			allCaptionTexts.forEach((el) => {
 				if (H.hideTimeout) clearTimeout(H.hideTimeout);
 				el.style.display = "block";
-				el.innerHTML = html;
+				el.textContent = text;
 			});
 			H.hideTimeout = setTimeout(() => {
 				allCaptionTexts.forEach(el => { el.style.display = "none"; });

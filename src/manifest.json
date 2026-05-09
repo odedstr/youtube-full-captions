@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Full Captions",
-  "version": "1.0.0.0",
+  "version": "1.0.0.1",
   "description": "Show YouTube captions line-by-line by syncing from transcript timestamps.",
   "author": "Oded Streigold",
   "icons": {
