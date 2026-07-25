@@ -8,11 +8,13 @@
 <body>
 <h1>Caption Settings</h1>
 
-<label for="fontScale">Font size (scale)</label>
-<div class="scale-row">
-    <input id="fontScale" type="range" min="0.5" max="2" step="0.05">
-    <span id="fontScaleVal">1.00×</span>
-</div>
+<label for="fontScale">
+    Font size (scale)
+    <span class="scale-row">
+        <input id="fontScale" type="range" min="0.5" max="2" step="0.05">
+        <span id="fontScaleVal">1.00×</span>
+    </span>
+</label>
 
 
 
@@ -50,8 +52,18 @@
 
 <label>
     Background opacity
-    <input id="bgOpacity" type="range" min="0" max="1" step="0.02">
-    <span id="bgOpacityVal"></span>
+    <span class="range-row">
+        <input id="bgOpacity" type="range" min="0" max="1" step="0.02">
+        <span id="bgOpacityVal"></span>
+    </span>
+</label>
+
+<label for="captionExtraSeconds">
+    Keep the captions visible for longer by
+    <span class="seconds-input">
+        <input id="captionExtraSeconds" type="number" min="0" step="any" inputmode="decimal" value="0">
+        seconds.
+    </span>
 </label>
 
 <label>

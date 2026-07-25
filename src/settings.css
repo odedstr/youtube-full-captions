@@ -1,6 +1,8 @@
 body {
 	font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 	padding: 16px;
+	max-width: 600px;
+	box-sizing: border-box;
 }
 
 h1 {
@@ -10,14 +12,15 @@ h1 {
 
 label {
 	display: grid;
-	grid-template-columns: 1fr auto;
+	grid-template-columns: max-content auto;
 	gap: 8px;
 	align-items: center;
+	justify-content: start;
 	margin: 10px 0;
 }
 
 .color-row {
-	grid-template-columns: 1fr auto auto;
+	grid-template-columns: max-content auto auto;
 }
 
 .hex {
@@ -35,18 +38,25 @@ input[type="range"] {
 	width: 200px;
 }
 
-.scale-row {
+.scale-row,
+.range-row {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-}
-
-.scale-row #fontScale {
-	flex: 1;
 }
 
 .scale-row #fontScaleVal {
 	min-width: 3.5em;
 	text-align: right;
 	font-variant-numeric: tabular-nums;
+}
+
+.seconds-input {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+#captionExtraSeconds {
+	width: 7em;
 }

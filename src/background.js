@@ -33,7 +33,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	await chrome.windows.create({
 		url,
 		type: "popup",
-		width: 420,
+		width: 600,
 		height: 420,
 		focused: true
 	});
